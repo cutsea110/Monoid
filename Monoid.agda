@@ -8,8 +8,6 @@ open import Relation.Binary.PropositionalEquality as Eq
 record IsSemiGroup {A : Set} (_∙_ : A → A → A) : Set where
   field
     assoc : ∀ x y z → (x ∙ y) ∙ z ≡ x ∙ (y ∙ z)
-  _⊕_ : A → A → A
-  _⊕_ = _∙_
 
 ℕ+-isSemigroup : IsSemiGroup _+_
 ℕ+-isSemigroup = record { assoc = +-assoc }
@@ -22,7 +20,8 @@ record IsMonoid {A : Set} (_∙_ : A → A → A) (ε : A) : Set where
   field
     isSemigroup : IsSemiGroup _∙_
     identity    : (∀ x → ε ∙ x ≡ x) × (∀ x → x ∙ ε ≡ x)
-
+  _<>_ = _∙_
+  
   open IsSemiGroup isSemigroup public
 
 ℕ+0-isMonoid : IsMonoid _+_ 0
@@ -77,36 +76,43 @@ Maybe-isFunctor = record { fmap = lift; identity = fmap-id; homomorphic = fmap-�
     fmap-∘ nothing = refl
     fmap-∘ (just x) = refl
 
-lift2 : ∀ {A B C} → (A → B → C) → Maybe A → Maybe B → Maybe C
-lift2 f nothing m₂ = nothing
-lift2 f m₁ nothing = nothing
+lift2 : {A : Set} → (A → A → A) → Maybe A → Maybe A → Maybe A
+lift2 f nothing m₂ = m₂
+lift2 f m₁ nothing = m₁
 lift2 f (just x) (just y) = just (f x y)
-
-maybe-assoc : ∀ {A} {op2 : A → A → A} →
-          IsSemiGroup op2 →
-          (x y z : Maybe A) →
-          lift2 op2 (lift2 op2 x y) z ≡ lift2 op2 x (lift2 op2 y z)
-maybe-assoc A-isMonoid nothing my mz = refl
-maybe-assoc A-isMonoid (just x) nothing mz = refl
-maybe-assoc A-isMonoid (just x) (just y) nothing = refl
-maybe-assoc A-isMonoid (just x) (just y) (just z) = cong just (IsSemiGroup.assoc A-isMonoid x y z)
 
 MaybeA-isSemigroup : ∀ {A} {op2 : A → A → A} →
                    (prf : IsSemiGroup op2) → IsSemiGroup (lift2 op2)
 MaybeA-isSemigroup prf = record { assoc = maybe-assoc prf }
+  where
+    maybe-assoc : ∀ {A} {op2 : A → A → A} →
+              IsSemiGroup op2 →
+              (x y z : Maybe A) →
+              lift2 op2 (lift2 op2 x y) z ≡ lift2 op2 x (lift2 op2 y z)
+    maybe-assoc p nothing my mz = refl
+    maybe-assoc p (just x) nothing mz = refl
+    maybe-assoc p (just x) (just y) nothing = refl
+    maybe-assoc p (just x) (just y) (just z) = cong just (IsSemiGroup.assoc p x y z)
 
 Maybeℕ+-isSemigroup : IsSemiGroup {Maybe ℕ} (lift2 _+_)
 Maybeℕ+-isSemigroup = MaybeA-isSemigroup ℕ+-isSemigroup
 
-{--
-Maybeℕ+-isSemigroup : IsSemiGroup {Maybe ℕ} (lift2 _+_)
-Maybeℕ+-isSemigroup = record { assoc = maybeℕ-assoc }
-  where
-    maybeℕ-assoc : ∀ x y z →
-               lift2 _+_ (lift2 _+_ x y) z ≡ lift2 _+_ x (lift2 _+_ y z)
-    maybeℕ-assoc nothing my mz = refl
-    maybeℕ-assoc (just x) nothing mz = refl
-    maybeℕ-assoc (just x) (just x₁) nothing = refl
-    maybeℕ-assoc (just x) (just y) (just z)
-      = cong just (assoc x y z) where open IsSemiGroup ℕ+-isSemigroup
---}
+MaybeEndo-isSemigroup : ∀ {A} → IsSemiGroup {Maybe (Endo A)} (lift2 _∙_)
+MaybeEndo-isSemigroup = MaybeA-isSemigroup Endo-isSemigroup
+
+m<>nothing≡m : ∀ {A} {op2 : A → A → A} {x : Maybe A} → lift2 op2 x nothing ≡ x
+m<>nothing≡m {x = nothing} = refl
+m<>nothing≡m {x = just x} = refl
+
+MaybeA-isMonoid : {A : Set} {op2 : A → A → A} {ε : A} →
+  IsMonoid op2 ε → IsMonoid (lift2 op2) nothing
+MaybeA-isMonoid prf
+  = record { isSemigroup = MaybeA-isSemigroup (IsMonoid.isSemigroup prf)
+           ; identity = (λ x → refl) , (λ x → m<>nothing≡m)
+           }
+
+Maybeℕ+0-isMonoid : IsMonoid {Maybe ℕ} (lift2 _+_) nothing
+Maybeℕ+0-isMonoid = MaybeA-isMonoid ℕ+0-isMonoid
+
+MaybeEndo-isMonoid : ∀{A} → IsMonoid {Maybe (Endo A)} (lift2 _∙_) nothing
+MaybeEndo-isMonoid = MaybeA-isMonoid Endo-isMonoid
