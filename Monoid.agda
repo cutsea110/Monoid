@@ -173,3 +173,23 @@ Any-isMonoid = record { isSemigroup = Any-isSemigroup ; identity = (λ x → ref
     b||e≡b : {x : Any} → any (getAny x ∨ false) ≡ x
     b||e≡b {x = any true} = refl
     b||e≡b {x = any false} = refl
+
+record Dual (A : Set) : Set where
+  constructor dual
+  field
+    getDual : A
+
+open Dual
+
+transDual : ∀ {A} → (A → A → A) → Dual A → Dual A → Dual A
+transDual f (dual x) (dual y) = dual (f y x)
+
+DualA-isSemigroup : ∀ {A} {op2 : A → A → A} →
+                  (prf : IsSemiGroup {A} op2) → IsSemiGroup (transDual op2)
+DualA-isSemigroup prf = record { assoc = dual-assoc prf }
+  where
+    dual-assoc : ∀ {A} {op2 : A → A → A} →
+             IsSemiGroup op2 →
+             (x y z : Dual A) →
+             dual (op2 (getDual z) (op2 (getDual y) (getDual x))) ≡ dual (op2 (op2 (getDual z) (getDual y)) (getDual x))
+    dual-assoc p (dual x) (dual y) (dual z) = cong dual (sym (IsSemiGroup.assoc p z y x))
