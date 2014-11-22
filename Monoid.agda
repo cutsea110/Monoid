@@ -184,12 +184,99 @@ open Dual
 transDual : ∀ {A} → (A → A → A) → Dual A → Dual A → Dual A
 transDual f (dual x) (dual y) = dual (f y x)
 
+dual-assoc : ∀ {A} {op2 : A → A → A} →
+           IsSemiGroup op2 →
+           (x y z : Dual A) →
+           dual (op2 (getDual z) (op2 (getDual y) (getDual x))) ≡ dual (op2 (op2 (getDual z) (getDual y)) (getDual x))
+dual-assoc p (dual x) (dual y) (dual z) = cong dual (sym (IsSemiGroup.assoc p z y x))
+
+dual-identity : ∀ {A} {op2 : A → A → A} {ε : A} →
+                (prf : IsMonoid op2 ε) →
+                ((x : Dual A) → dual (op2 (getDual x) ε) ≡ x) × ((x : Dual A) → dual (op2 ε (getDual x)) ≡ x)
+dual-identity p = rightId p , leftId p
+  where
+    rightId : ∀ {A} {op2 : A → A → A} {ε : A} →
+          (prf : IsMonoid op2 ε) → (x : Dual A) → dual (op2 (getDual x) ε) ≡ x
+    rightId p (dual x) = cong dual (proj₂ (IsMonoid.identity p) x)
+    leftId : ∀ {A} {op2 : A → A → A} {ε : A} →
+         (prf : IsMonoid op2 ε) → (x : Dual A) → dual (op2 ε (getDual x)) ≡ x
+    leftId p (dual x) = cong dual (proj₁ (IsMonoid.identity p) x)
+
 DualA-isSemigroup : ∀ {A} {op2 : A → A → A} →
                   (prf : IsSemiGroup {A} op2) → IsSemiGroup (transDual op2)
 DualA-isSemigroup prf = record { assoc = dual-assoc prf }
+
+DualA-isMonoid : ∀ {A} {op2 : A → A → A} {ε : A} →
+               (prf : IsMonoid {A} op2 ε) → IsMonoid (transDual op2) (dual ε)
+DualA-isMonoid p = record { isSemigroup = DualA-isSemigroup (IsMonoid.isSemigroup p)
+                          ; identity = dual-identity p
+                          }
+
+DualMaybeℕ+0-isMonoid : IsMonoid (transDual (lift2 _+_)) (dual nothing)
+DualMaybeℕ+0-isMonoid = DualA-isMonoid (MaybeA-isMonoid ℕ+0-isMonoid)
+
+MaybeDualℕ+0-isMonoid : IsMonoid (lift2 (transDual _+_)) nothing
+MaybeDualℕ+0-isMonoid = MaybeA-isMonoid (DualA-isMonoid ℕ+0-isMonoid)
+
+record First (A : Set) : Set where
+  constructor first
+  field
+    getFirst : Maybe A
+
+_<|_ : {A : Set} → First A → First A → First A
+fa <| fb with fa
+fa <| fb | first nothing = fb
+fa <| fb | first (just _) = fa
+
+<|-assoc : {A : Set} → (fx fy fz : First A) → (fx <| fy) <| fz ≡ fx <| (fy <| fz)
+<|-assoc (first nothing) fy fz = refl
+<|-assoc (first (just x)) fy fz = refl
+
+<|-identity : {A : Set} → ((x : First A) → first nothing <| x ≡ x) × ((x : First A) → x <| first nothing ≡ x)
+<|-identity = (λ x → refl) , (λ x → right-id)
   where
-    dual-assoc : ∀ {A} {op2 : A → A → A} →
-             IsSemiGroup op2 →
-             (x y z : Dual A) →
-             dual (op2 (getDual z) (op2 (getDual y) (getDual x))) ≡ dual (op2 (op2 (getDual z) (getDual y)) (getDual x))
-    dual-assoc p (dual x) (dual y) (dual z) = cong dual (sym (IsSemiGroup.assoc p z y x))
+    right-id : ∀ {A} {x : First A} → (x <| first nothing) ≡ x
+    right-id {x = first nothing} = refl
+    right-id {x = first (just x)} = refl
+
+record Last (A : Set) : Set where
+  constructor last
+  field
+    getLast : Maybe A
+
+_|>_ : {A : Set} → Last A → Last A → Last A
+fa |> fb with fb
+fa |> fb | last nothing = fa
+fa |> fb | last (just _) = fb
+
+|>-assoc : {A : Set} → (lx ly lz : Last A) → (lx |> ly) |> lz ≡ lx |> (ly |> lz)
+|>-assoc lx ly (last nothing) = refl
+|>-assoc lx ly (last (just x)) = refl
+
+|>-identity : ∀ {A} → ((x : Last A) → last nothing |> x ≡ x) × ((x : Last A) → x |> last nothing ≡ x)
+|>-identity = (λ x → left-id) , (λ x → refl)
+  where
+    left-id : ∀ {A} {x : Last A} → last nothing |> x ≡ x
+    left-id {x = last nothing} = refl
+    left-id {x = last (just x)} = refl
+
+
+First-isSemigroup : {A : Set} → IsSemiGroup {First A} _<|_
+First-isSemigroup = record { assoc = <|-assoc }
+
+Last-isSemigroup : {A : Set} → IsSemiGroup {Last A} _|>_
+Last-isSemigroup = record { assoc = |>-assoc }
+
+First-isMonoid : {A : Set} → IsMonoid {First A} _<|_ (first nothing)
+First-isMonoid = record { isSemigroup = First-isSemigroup ; identity = <|-identity }
+
+Last-isMonoid : {A : Set} → IsMonoid {Last A} _|>_ (last nothing)
+Last-isMonoid = record { isSemigroup = Last-isSemigroup ; identity = |>-identity }
+
+-- TODO
+-- Monoid b => Monoid (a -> b)
+-- Monoid a, Monoid b => Monoid (a , b)
+-- Monoid [a]
+-- Monoid Ordering
+-- (Monoid a , Monoid b) => Monoid (a , b)
+-- Monoid ()
