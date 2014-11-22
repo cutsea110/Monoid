@@ -3,6 +3,7 @@ module Monoid where
 open import Data.Bool
 open import Data.Nat
 open import Data.Product
+open import Data.Unit
 open import Function using (_∘_; id)
 open import Relation.Binary.PropositionalEquality as Eq
 
@@ -273,10 +274,56 @@ First-isMonoid = record { isSemigroup = First-isSemigroup ; identity = <|-identi
 Last-isMonoid : {A : Set} → IsMonoid {Last A} _|>_ (last nothing)
 Last-isMonoid = record { isSemigroup = Last-isSemigroup ; identity = |>-identity }
 
+_<u>_ : Unit → Unit → Unit
+_ <u> _ = unit
+<u>-assoc : (x y z : Unit) → (x <u> y) <u> z ≡ x <u> (y <u> z)
+<u>-assoc x y z = refl
+
+Unit-isSemigroup : IsSemiGroup {Unit} _<u>_
+Unit-isSemigroup = record { assoc = <u>-assoc }
+
+Unit-isMonoid : IsMonoid {Unit} _<u>_ unit
+Unit-isMonoid = record { isSemigroup = Unit-isSemigroup
+                       ; identity = (λ x → left-id) , (λ x → right-id)
+                       }
+              where
+                left-id : ∀ {x} → unit ≡ x
+                left-id {unit} = refl
+                right-id : ∀ {x} → unit ≡ x
+                right-id {unit} = refl
+
+data Ord : Set where
+  LT : Ord
+  EQ : Ord
+  GT : Ord
+
+_<o>_ : Ord → Ord → Ord
+LT <o> y = LT
+EQ <o> y = y
+GT <o> y = GT
+
+<o>-assoc : (x y z : Ord) → (x <o> y) <o> z ≡ x <o> (y <o> z)
+<o>-assoc LT y z = refl
+<o>-assoc EQ y z = refl
+<o>-assoc GT y z = refl
+
+ord-identity : (∀ x → EQ <o> x ≡ x) × (∀ x → x <o> EQ ≡ x)
+ord-identity = (λ x → refl) , (λ x → riht-id)
+  where
+    riht-id : ∀ {x} → x <o> EQ ≡ x
+    riht-id {LT} = refl
+    riht-id {EQ} = refl
+    riht-id {GT} = refl
+
+Ord-isSemigroup : IsSemiGroup _<o>_
+Ord-isSemigroup = record { assoc = <o>-assoc }
+
+Ord-isMonoid : IsMonoid _<o>_ EQ
+Ord-isMonoid = record { isSemigroup = Ord-isSemigroup ; identity = ord-identity }
+
 -- TODO
 -- Monoid b => Monoid (a -> b)
 -- Monoid a, Monoid b => Monoid (a , b)
 -- Monoid [a]
--- Monoid Ordering
 -- (Monoid a , Monoid b) => Monoid (a , b)
--- Monoid ()
+
