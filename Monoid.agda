@@ -1,9 +1,11 @@
 module Monoid where
 
+open import Data.Bool
 open import Data.Nat
 open import Data.Product
 open import Function using (_∘_; id)
 open import Relation.Binary.PropositionalEquality as Eq
+
 
 record IsSemiGroup {A : Set} (_∙_ : A → A → A) : Set where
   field
@@ -36,26 +38,26 @@ record Endo (A : Set) : Set where
   field
     appEndo : A → A
 
-_∙_ : {A : Set} → Endo A → Endo A → Endo A
+_∙_ : ∀ {A} → Endo A → Endo A → Endo A
 f ∙ g = endo (appEndo f ∘ appEndo g) where open Endo
 
-endo-assoc : {A : Set} → (f g h : Endo A) → (f ∙ g) ∙ h ≡ f ∙ (g ∙ h)
+endo-assoc : ∀ {A} → (f g h : Endo A) → (f ∙ g) ∙ h ≡ f ∙ (g ∙ h)
 endo-assoc (endo appEndo) (endo appEndo₁) (endo appEndo₂) = refl
 
-Endo-isSemigroup : {A : Set} → IsSemiGroup {Endo A} _∙_
+Endo-isSemigroup : ∀ {A} → IsSemiGroup {Endo A} _∙_
 Endo-isSemigroup = record { assoc = endo-assoc }
 
 endo-identity : ∀ {A} → ((x : Endo A) → (endo id) ∙ x ≡ x) × ((x : Endo A) → x ∙ (endo id) ≡ x)
 endo-identity = (λ x → refl) , (λ x → refl)
 
-Endo-isMonoid : {A : Set} → IsMonoid {Endo A} _∙_ (endo id)
+Endo-isMonoid : ∀ {A} → IsMonoid {Endo A} _∙_ (endo id)
 Endo-isMonoid = record { isSemigroup = Endo-isSemigroup ; identity = endo-identity }
 
 record IsFunctor (F : Set → Set) : Set₁ where
    field
     fmap : ∀ {A B} → (A → B) → F A → F B
-    identity : {A : Set} (x : F A) → fmap id x ≡ id x
-    homomorphic : ∀ {A B C} {f : B → C} {g : A → B} (x : F A) → (fmap f ∘ fmap g) x ≡ fmap (f ∘ g) x
+    identity : ∀ {A} → (x : F A) → fmap id x ≡ id x
+    homomorphic : ∀ {A B C} {f : B → C} {g : A → B} → (x : F A) → (fmap f ∘ fmap g) x ≡ fmap (f ∘ g) x
 
 data Maybe (A : Set) : Set where
   nothing : Maybe A
@@ -76,7 +78,7 @@ Maybe-isFunctor = record { fmap = lift; identity = fmap-id; homomorphic = fmap-�
     fmap-∘ nothing = refl
     fmap-∘ (just x) = refl
 
-lift2 : {A : Set} → (A → A → A) → Maybe A → Maybe A → Maybe A
+lift2 : ∀ {A} → (A → A → A) → Maybe A → Maybe A → Maybe A
 lift2 f nothing m₂ = m₂
 lift2 f m₁ nothing = m₁
 lift2 f (just x) (just y) = just (f x y)
@@ -104,7 +106,7 @@ m<>nothing≡m : ∀ {A} {op2 : A → A → A} {x : Maybe A} → lift2 op2 x not
 m<>nothing≡m {x = nothing} = refl
 m<>nothing≡m {x = just x} = refl
 
-MaybeA-isMonoid : {A : Set} {op2 : A → A → A} {ε : A} →
+MaybeA-isMonoid : ∀ {A} {op2 : A → A → A} {ε : A} →
   IsMonoid op2 ε → IsMonoid (lift2 op2) nothing
 MaybeA-isMonoid prf
   = record { isSemigroup = MaybeA-isSemigroup (IsMonoid.isSemigroup prf)
@@ -116,3 +118,58 @@ Maybeℕ+0-isMonoid = MaybeA-isMonoid ℕ+0-isMonoid
 
 MaybeEndo-isMonoid : ∀{A} → IsMonoid {Maybe (Endo A)} (lift2 _∙_) nothing
 MaybeEndo-isMonoid = MaybeA-isMonoid Endo-isMonoid
+
+record All : Set where
+  constructor all
+  field
+    getAll : Bool
+
+open All
+
+_&&_ : All → All → All
+x && y = all (getAll x ∧ getAll y) where open All
+
+&&-assoc : (x y z : All) →
+           all ((getAll x ∧ getAll y) ∧ getAll z) ≡ all (getAll x ∧ getAll y ∧ getAll z)
+&&-assoc (all x) (all y) (all z) = cong all (∧-assoc x y z)
+  where
+    ∧-assoc : (x y z : Bool) → (x ∧ y) ∧ z ≡ x ∧ y ∧ z
+    ∧-assoc true y z = refl
+    ∧-assoc false y z = refl
+
+All-isSemigroup : IsSemiGroup {All} _&&_
+All-isSemigroup = record { assoc = &&-assoc }
+
+All-isMonoid : IsMonoid {All} _&&_ (all true)
+All-isMonoid = record { isSemigroup = All-isSemigroup ; identity = (λ x → refl) , (λ x → b&&e≡b) }
+  where
+    b&&e≡b : {x : All} → all (getAll x ∧ true) ≡ x
+    b&&e≡b {x = all true} = refl
+    b&&e≡b {x = all false} = refl
+
+record Any : Set where
+  constructor any
+  field
+    getAny : Bool
+
+open Any
+
+_||_ : Any → Any → Any
+x || y = any (getAny x ∨ getAny y)
+||-assoc : (x y z : Any) →
+           any ((getAny x ∨ getAny y) ∨ getAny z) ≡ any (getAny x ∨ getAny y ∨ getAny z)
+||-assoc (any x) (any y) (any z) = cong any (∨-assoc x y z)
+  where
+    ∨-assoc : ∀ x y z → (x ∨ y) ∨ z ≡ x ∨ y ∨ z
+    ∨-assoc true y z = refl
+    ∨-assoc false y z = refl
+
+Any-isSemigroup : IsSemiGroup {Any} _||_
+Any-isSemigroup = record { assoc = ||-assoc }
+
+Any-isMonoid : IsMonoid {Any} _||_ (any false)
+Any-isMonoid = record { isSemigroup = Any-isSemigroup ; identity = (λ x → refl) , (λ x → b||e≡b) }
+  where
+    b||e≡b : {x : Any} → any (getAny x ∨ false) ≡ x
+    b||e≡b {x = any true} = refl
+    b||e≡b {x = any false} = refl
