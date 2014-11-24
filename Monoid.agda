@@ -1,12 +1,12 @@
 module Monoid where
 
 open import Data.Bool
+open import Data.List hiding (any; all)
 open import Data.Nat
 open import Data.Product
 open import Data.Unit
 open import Function using (_∘_; id)
-open import Relation.Binary.PropositionalEquality as Eq
-
+open import Relation.Binary.PropositionalEquality as PropEq
 
 record IsSemiGroup {A : Set} (_∙_ : A → A → A) : Set where
   field
@@ -321,9 +321,80 @@ Ord-isSemigroup = record { assoc = <o>-assoc }
 Ord-isMonoid : IsMonoid _<o>_ EQ
 Ord-isMonoid = record { isSemigroup = Ord-isSemigroup ; identity = ord-identity }
 
+[]-identity : {A : Set} {x : List A} → ([] ++ x ≡ x) × (x ++ [] ≡ x)
+[]-identity = left-id , right-id
+  where
+    left-id : {A : Set} {x : List A} → x ≡ x
+    left-id = refl
+    right-id : {A : Set} {x : List A} → x ++ [] ≡ x
+    right-id {x = []} = refl
+    right-id {x = x₁ ∷ x₂} = cong (λ xs → x₁ ∷ xs) right-id
+
+
+[]-assoc : {A : Set} (x y z : List A) → (x ++ y) ++ z ≡ x ++ (y ++ z)
+[]-assoc [] y z = refl
+[]-assoc (x ∷ x') y z = cong (_∷_ x) ([]-assoc x' y z)
+
+[]-isSemigroup : {A : Set} → IsSemiGroup {List A} _++_
+[]-isSemigroup = record { assoc = []-assoc }
+
+[]-isMonoid : {A : Set} → IsMonoid {List A} _++_ []
+[]-isMonoid = record { isSemigroup = []-isSemigroup
+                     ; identity = (λ x → proj₁ []-identity) , (λ x → proj₂ []-identity)
+                     }
+
 -- TODO
 -- Monoid b => Monoid (a -> b)
 -- Monoid a, Monoid b => Monoid (a , b)
--- Monoid [a]
 -- (Monoid a , Monoid b) => Monoid (a , b)
 
+{--
+record Tuple (A B : Set) : Set where
+  constructor _,_
+  field
+    fst : A
+    snd : B
+
+_<,>_ : {A B : Set} (op₁ : A → A → A) → (op₂ : B → B → B) → Tuple A B → Tuple A B → Tuple A B
+_<,>_ op₁ op₂ (x₁ , x₂) (y₁ , y₂) = op₁ x₁ y₁ , op₂ x₂ y₂
+
+open Tuple
+
+Op : ℕ → Set → Set
+Op zero A = A
+Op (suc n) A = A → Op n A
+
+Op2 : Set → Set
+Op2 = Op 2 
+Op3 : Set → Set
+Op3 = Op 3
+
+<,>-assoc : {A B : Set} {op₁ : Op2 A} {op₂ : Op2 B} {P P' : Op3 A} {Q Q' : Op3 B} →
+            ((x y z : A) → P x y z ≡ P' x y z) →
+            ((x y z : B) → Q x y z ≡ Q' x y z) →
+            (x y z : Tuple A B) →
+            P (fst x) (fst y) (fst z) , Q (snd x) (snd y) (snd z)
+            ≡
+            P' (fst x) (fst y) (fst z) , Q' (snd x) (snd y) (snd z)
+<,>-assoc prf₁ prf₂ x y z = refl
+
+<,>-isSemigroup : {A B : Set}{op₁ : A → A → A}{op₂ : B → B → B} →
+                IsSemiGroup op₁ → IsSemiGroup op₂ → IsSemiGroup (op₁ <,> op₂)
+<,>-isSemigroup _ _ = record { assoc = <,>-assoc (λ x y z → refl) (λ x y z → refl) }
+--}
+
+
+{--
+covariant : {A B : Set} → (B → B → B) → (A → B) → (A → B) → A → B
+covariant _⊕_ f g x = f x ⊕ g x
+
+covariant-assoc : {A B : Set} {_⊕_ : B → B → B} →
+                  IsSemiGroup _⊕_ →
+                  (f g h : A → B) →
+                  (λ x → (f x ⊕ g x) ⊕ h x) ≡ (λ x → f x ⊕ (g x ⊕ h x))
+covariant-assoc prf f g h = {!!}
+
+Covariant-isSemigroup : {A B : Set} {_⊕_ : B → B → B} →
+                      (prf : IsSemiGroup {B} _⊕_) → IsSemiGroup {A → B} (covariant _⊕_)
+Covariant-isSemigroup prf = record { assoc = covariant-assoc prf }
+--}
