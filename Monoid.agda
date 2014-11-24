@@ -343,45 +343,31 @@ Ord-isMonoid = record { isSemigroup = Ord-isSemigroup ; identity = ord-identity 
                      ; identity = (λ x → proj₁ []-identity) , (λ x → proj₂ []-identity)
                      }
 
+_<×>_ : {A B : Set} → (op₁ : A → A → A) → (op₂ : B → B → B) → A × B → A × B → A × B
+(op₁ <×> op₂) (fst₁ , snd₁) (fst₂ , snd₂) = op₁ fst₁ fst₂ , op₂ snd₁ snd₂
+
+assoc-join : {P P' : Set} {Q Q' : Set → Set₁} → P ≡ P' → Q ≡ Q' → P , Q ≡ P' , Q'
+assoc-join refl refl = refl
+
+×-assoc : {A B : Set} {op₁ : A → A → A} {op₂ : B → B → B} →
+          IsSemiGroup op₁ →
+          IsSemiGroup op₂ →
+          (x y z : A × B) →
+          (op₁ (op₁ (proj₁ x) (proj₁ y)) (proj₁ z) , op₂ (op₂ (proj₂ x) (proj₂ y)) (proj₂ z))
+          ≡
+          (op₁ (proj₁ x) (op₁ (proj₁ y) (proj₁ z)) , op₂ (proj₂ x) (op₂ (proj₂ y) (proj₂ z)))
+×-assoc sg₁ sg₂ (fst₁ , snd₁) (fst₂ , snd₂) (fst₃ , snd₃)
+  with IsSemiGroup.assoc sg₁ fst₁ fst₂ fst₃ | IsSemiGroup.assoc sg₂ snd₁ snd₂ snd₃
+... | prf₁ | prf₂ = {!!}
+
+×-isSemigroup : {A B : Set} {op₁ : A → A → A} {op₂ : B → B → B} →
+              IsSemiGroup op₁ → IsSemiGroup op₂ → IsSemiGroup {A × B} (op₁ <×> op₂)
+×-isSemigroup prf₁ prf₂ = record { assoc = ×-assoc prf₁ prf₂ }
+
 -- TODO
 -- Monoid b => Monoid (a -> b)
 -- Monoid a, Monoid b => Monoid (a , b)
 -- (Monoid a , Monoid b) => Monoid (a , b)
-
-{--
-record Tuple (A B : Set) : Set where
-  constructor _,_
-  field
-    fst : A
-    snd : B
-
-_<,>_ : {A B : Set} (op₁ : A → A → A) → (op₂ : B → B → B) → Tuple A B → Tuple A B → Tuple A B
-_<,>_ op₁ op₂ (x₁ , x₂) (y₁ , y₂) = op₁ x₁ y₁ , op₂ x₂ y₂
-
-open Tuple
-
-Op : ℕ → Set → Set
-Op zero A = A
-Op (suc n) A = A → Op n A
-
-Op2 : Set → Set
-Op2 = Op 2 
-Op3 : Set → Set
-Op3 = Op 3
-
-<,>-assoc : {A B : Set} {op₁ : Op2 A} {op₂ : Op2 B} {P P' : Op3 A} {Q Q' : Op3 B} →
-            ((x y z : A) → P x y z ≡ P' x y z) →
-            ((x y z : B) → Q x y z ≡ Q' x y z) →
-            (x y z : Tuple A B) →
-            P (fst x) (fst y) (fst z) , Q (snd x) (snd y) (snd z)
-            ≡
-            P' (fst x) (fst y) (fst z) , Q' (snd x) (snd y) (snd z)
-<,>-assoc prf₁ prf₂ x y z = refl
-
-<,>-isSemigroup : {A B : Set}{op₁ : A → A → A}{op₂ : B → B → B} →
-                IsSemiGroup op₁ → IsSemiGroup op₂ → IsSemiGroup (op₁ <,> op₂)
-<,>-isSemigroup _ _ = record { assoc = <,>-assoc (λ x y z → refl) (λ x y z → refl) }
---}
 
 
 {--
