@@ -346,29 +346,26 @@ Ord-isMonoid = record { isSemigroup = Ord-isSemigroup ; identity = ord-identity 
 _<×>_ : {A B : Set} → (op₁ : A → A → A) → (op₂ : B → B → B) → A × B → A × B → A × B
 (op₁ <×> op₂) (fst₁ , snd₁) (fst₂ , snd₂) = op₁ fst₁ fst₂ , op₂ snd₁ snd₂
 
-assoc-join : {P P' : Set} {Q Q' : Set → Set₁} → P ≡ P' → Q ≡ Q' → P , Q ≡ P' , Q'
-assoc-join refl refl = refl
-
-×-assoc : {A B : Set} {op₁ : A → A → A} {op₂ : B → B → B} →
+×-assoc : ∀ {A B} {op₁ : A → A → A} {op₂ : B → B → B} →
           IsSemiGroup op₁ →
           IsSemiGroup op₂ →
           (x y z : A × B) →
           (op₁ (op₁ (proj₁ x) (proj₁ y)) (proj₁ z) , op₂ (op₂ (proj₂ x) (proj₂ y)) (proj₂ z))
           ≡
           (op₁ (proj₁ x) (op₁ (proj₁ y) (proj₁ z)) , op₂ (proj₂ x) (op₂ (proj₂ y) (proj₂ z)))
-×-assoc sg₁ sg₂ (fst₁ , snd₁) (fst₂ , snd₂) (fst₃ , snd₃)
+×-assoc {A} {B} {op₁} {op₂} sg₁ sg₂ (fst₁ , snd₁) (fst₂ , snd₂) (fst₃ , snd₃)
   with IsSemiGroup.assoc sg₁ fst₁ fst₂ fst₃ | IsSemiGroup.assoc sg₂ snd₁ snd₂ snd₃
-... | prf₁ | prf₂ = {!!}
+... | prf₁ | prf₂ rewrite prf₁ | prf₂ = refl
 
 ×-isSemigroup : {A B : Set} {op₁ : A → A → A} {op₂ : B → B → B} →
               IsSemiGroup op₁ → IsSemiGroup op₂ → IsSemiGroup {A × B} (op₁ <×> op₂)
 ×-isSemigroup prf₁ prf₂ = record { assoc = ×-assoc prf₁ prf₂ }
 
+
+
 -- TODO
 -- Monoid b => Monoid (a -> b)
--- Monoid a, Monoid b => Monoid (a , b)
 -- (Monoid a , Monoid b) => Monoid (a , b)
-
 
 {--
 covariant : {A B : Set} → (B → B → B) → (A → B) → (A → B) → A → B
