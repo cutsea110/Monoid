@@ -361,11 +361,37 @@ _<×>_ : {A B : Set} → (op₁ : A → A → A) → (op₂ : B → B → B) →
               IsSemiGroup op₁ → IsSemiGroup op₂ → IsSemiGroup {A × B} (op₁ <×> op₂)
 ×-isSemigroup prf₁ prf₂ = record { assoc = ×-assoc prf₁ prf₂ }
 
+×-identity : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
+             IsMonoid op₁ e₁ →
+             IsMonoid op₂ e₂ →
+             ((x : A × B) → (op₁ e₁ (proj₁ x) , op₂ e₂ (proj₂ x)) ≡ x)
+             ×
+             ((x : A × B) → (op₁ (proj₁ x) e₁ , op₂ (proj₂ x) e₂) ≡ x)
+×-identity {A} {B} {op₁} {e₁} {op₂}{e₂} prf₁ prf₂ with IsMonoid.identity prf₁ | IsMonoid.identity prf₂
+... | id₁ | id₂ = left-id {A} {B} {op₁} {e₁} {op₂} {e₂} (proj₁ id₁) (proj₁ id₂) ,
+                  right-id {A} {B} {op₁} {e₁} {op₂} {e₂} (proj₂ id₁) (proj₂ id₂)
+  where
+    left-id : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
+          ((x : A) → op₁ e₁ x ≡ x) →
+          ((x : B) → op₂ e₂ x ≡ x) →
+          (x : A × B) → (op₁ e₁ (proj₁ x) , op₂ e₂ (proj₂ x)) ≡ x
+    left-id id₁ id₂ (x₁ , x₂) rewrite id₁ x₁ | id₂ x₂ = refl
+    right-id : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
+           ((x : A) → op₁ x e₁ ≡ x) →
+           ((x : B) → op₂ x e₂ ≡ x) →
+           (x : A × B) → (op₁ (proj₁ x) e₁ , op₂ (proj₂ x) e₂) ≡ x
+    right-id id₁ id₂ (x₁ , x₂) rewrite id₁ x₁ | id₂ x₂ = refl
 
+×-isMonoid : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
+             IsMonoid op₁ e₁ → IsMonoid op₂ e₂ → (x y z : A × B) →
+             IsMonoid {A × B} (op₁ <×> op₂) (e₁ , e₂)
+×-isMonoid prf₁ prf₂ x y z
+  = record { isSemigroup = ×-isSemigroup (IsMonoid.isSemigroup prf₁) (IsMonoid.isSemigroup prf₂)
+           ; identity = ×-identity prf₁ prf₂
+           }
 
 -- TODO
 -- Monoid b => Monoid (a -> b)
--- (Monoid a , Monoid b) => Monoid (a , b)
 
 {--
 covariant : {A B : Set} → (B → B → B) → (A → B) → (A → B) → A → B
