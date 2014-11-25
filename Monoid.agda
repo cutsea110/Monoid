@@ -390,10 +390,9 @@ _<×>_ : {A B : Set} → (op₁ : A → A → A) → (op₂ : B → B → B) →
            ; identity = ×-identity prf₁ prf₂
            }
 
--- TODO
--- Monoid b => Monoid (a -> b)
+postulate
+  extentionality : ∀ {a b} → PropEq.Extensionality a b
 
-{--
 covariant : {A B : Set} → (B → B → B) → (A → B) → (A → B) → A → B
 covariant _⊕_ f g x = f x ⊕ g x
 
@@ -401,9 +400,8 @@ covariant-assoc : {A B : Set} {_⊕_ : B → B → B} →
                   IsSemiGroup _⊕_ →
                   (f g h : A → B) →
                   (λ x → (f x ⊕ g x) ⊕ h x) ≡ (λ x → f x ⊕ (g x ⊕ h x))
-covariant-assoc prf f g h = {!!}
+covariant-assoc prf = λ f g h →  extentionality (λ x → IsSemiGroup.assoc prf (f x) (g x) (h x))
 
 Covariant-isSemigroup : {A B : Set} {_⊕_ : B → B → B} →
                       (prf : IsSemiGroup {B} _⊕_) → IsSemiGroup {A → B} (covariant _⊕_)
 Covariant-isSemigroup prf = record { assoc = covariant-assoc prf }
---}
