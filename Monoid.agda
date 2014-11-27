@@ -1,407 +1,68 @@
 module Monoid where
 
-open import Data.Bool
-open import Data.List hiding (any; all)
-open import Data.Nat
 open import Data.Product
-open import Data.Unit
-open import Function using (_∘_; id)
+open import Function using (_∘_; const)
 open import Relation.Binary.PropositionalEquality as PropEq
 
-record IsSemiGroup {A : Set} (_∙_ : A → A → A) : Set where
+
+Op₁ : (A : Set) → Set
+Op₁ A = A → A
+Op₂ : (A : Set) → Set
+Op₂ A = A → A → A
+
+Associativity : ∀ {A : Set} → (_⊕_ : Op₂ A) → Set
+Associativity _⊕_ = ∀ x y z → (x ⊕ y) ⊕ z ≡ x ⊕ (y ⊕ z)
+Left-Identity : ∀ {A : Set} → (_⊕_ : Op₂ A) →  (ε : A) → Set
+Left-Identity _⊕_ ε = ∀ x → ε ⊕ x ≡ x
+Right-Identity : ∀ {A : Set} → (_⊕_ : Op₂ A) →  (ε : A) → Set
+Right-Identity _⊕_ ε = ∀ x → x ⊕ ε ≡ x
+Identity : ∀ {A : Set} → (_⊕_ : Op₂ A) →  (ε : A) → Set
+Identity _⊕_ ε = Left-Identity _⊕_ ε × Right-Identity _⊕_ ε
+
+record IsSemiGroup {A : Set}(_∙_ : Op₂ A) : Set where
   field
-    assoc : ∀ x y z → (x ∙ y) ∙ z ≡ x ∙ (y ∙ z)
+    ∙-assoc : Associativity _∙_
 
-ℕ+-isSemigroup : IsSemiGroup _+_
-ℕ+-isSemigroup = record { assoc = +-assoc }
-  where
-    +-assoc : ∀ x y z → (x + y) + z ≡ x + (y + z)
-    +-assoc zero y z = refl
-    +-assoc (suc x) y z = cong suc (+-assoc x y z)
-
-record IsMonoid {A : Set} (_∙_ : A → A → A) (ε : A) : Set where
+record IsMonoid {A : Set} (_∙_ : Op₂ A) (ε : A) : Set where
   field
     isSemigroup : IsSemiGroup _∙_
-    identity    : (∀ x → ε ∙ x ≡ x) × (∀ x → x ∙ ε ≡ x)
-  _<>_ = _∙_
-  
-  open IsSemiGroup isSemigroup public
-
-ℕ+0-isMonoid : IsMonoid _+_ 0
-ℕ+0-isMonoid = record { isSemigroup = ℕ+-isSemigroup ; identity = (λ x → refl) , n+0≡n }
-  where
-    n+0≡n : ∀ n → n + 0 ≡ n
-    n+0≡n zero = refl
-    n+0≡n (suc n) = cong suc (n+0≡n n)
-
-record Endo (A : Set) : Set where
-  constructor endo
-  field
-    appEndo : A → A
-
-_∙_ : ∀ {A} → Endo A → Endo A → Endo A
-f ∙ g = endo (appEndo f ∘ appEndo g) where open Endo
-
-endo-assoc : ∀ {A} → (f g h : Endo A) → (f ∙ g) ∙ h ≡ f ∙ (g ∙ h)
-endo-assoc (endo appEndo) (endo appEndo₁) (endo appEndo₂) = refl
-
-Endo-isSemigroup : ∀ {A} → IsSemiGroup {Endo A} _∙_
-Endo-isSemigroup = record { assoc = endo-assoc }
-
-endo-identity : ∀ {A} → ((x : Endo A) → (endo id) ∙ x ≡ x) × ((x : Endo A) → x ∙ (endo id) ≡ x)
-endo-identity = (λ x → refl) , (λ x → refl)
-
-Endo-isMonoid : ∀ {A} → IsMonoid {Endo A} _∙_ (endo id)
-Endo-isMonoid = record { isSemigroup = Endo-isSemigroup ; identity = endo-identity }
-
-record IsFunctor (F : Set → Set) : Set₁ where
-   field
-    fmap : ∀ {A B} → (A → B) → F A → F B
-    identity : ∀ {A} → (x : F A) → fmap id x ≡ id x
-    homomorphic : ∀ {A B C} {f : B → C} {g : A → B} → (x : F A) → (fmap f ∘ fmap g) x ≡ fmap (f ∘ g) x
-
-data Maybe (A : Set) : Set where
-  nothing : Maybe A
-  just : A → Maybe A
-
-lift : ∀{A B} → (A → B) → Maybe A → Maybe B
-lift f nothing = nothing
-lift f (just x) = just (f x)
-
-Maybe-isFunctor : IsFunctor Maybe
-Maybe-isFunctor = record { fmap = lift; identity = fmap-id; homomorphic = fmap-∘ }
-  where
-    fmap-id : ∀ {A} (x : Maybe A) → lift id x ≡ x
-    fmap-id nothing = refl
-    fmap-id (just x) = refl
-    fmap-∘ : ∀ {A B C} {f : B → C} {g : A → B}
-      (x : Maybe A) → lift f (lift g x) ≡ lift (λ y → f (g y)) x
-    fmap-∘ nothing = refl
-    fmap-∘ (just x) = refl
-
-lift2 : ∀ {A} → (A → A → A) → Maybe A → Maybe A → Maybe A
-lift2 f nothing m₂ = m₂
-lift2 f m₁ nothing = m₁
-lift2 f (just x) (just y) = just (f x y)
-
-MaybeA-isSemigroup : ∀ {A} {op2 : A → A → A} →
-                   (prf : IsSemiGroup op2) → IsSemiGroup (lift2 op2)
-MaybeA-isSemigroup prf = record { assoc = maybe-assoc prf }
-  where
-    maybe-assoc : ∀ {A} {op2 : A → A → A} →
-              IsSemiGroup op2 →
-              (x y z : Maybe A) →
-              lift2 op2 (lift2 op2 x y) z ≡ lift2 op2 x (lift2 op2 y z)
-    maybe-assoc p nothing my mz = refl
-    maybe-assoc p (just x) nothing mz = refl
-    maybe-assoc p (just x) (just y) nothing = refl
-    maybe-assoc p (just x) (just y) (just z) = cong just (IsSemiGroup.assoc p x y z)
-
-Maybeℕ+-isSemigroup : IsSemiGroup {Maybe ℕ} (lift2 _+_)
-Maybeℕ+-isSemigroup = MaybeA-isSemigroup ℕ+-isSemigroup
-
-MaybeEndo-isSemigroup : ∀ {A} → IsSemiGroup {Maybe (Endo A)} (lift2 _∙_)
-MaybeEndo-isSemigroup = MaybeA-isSemigroup Endo-isSemigroup
-
-m<>nothing≡m : ∀ {A} {op2 : A → A → A} {x : Maybe A} → lift2 op2 x nothing ≡ x
-m<>nothing≡m {x = nothing} = refl
-m<>nothing≡m {x = just x} = refl
-
-MaybeA-isMonoid : ∀ {A} {op2 : A → A → A} {ε : A} →
-  IsMonoid op2 ε → IsMonoid (lift2 op2) nothing
-MaybeA-isMonoid prf
-  = record { isSemigroup = MaybeA-isSemigroup (IsMonoid.isSemigroup prf)
-           ; identity = (λ x → refl) , (λ x → m<>nothing≡m)
-           }
-
-Maybeℕ+0-isMonoid : IsMonoid {Maybe ℕ} (lift2 _+_) nothing
-Maybeℕ+0-isMonoid = MaybeA-isMonoid ℕ+0-isMonoid
-
-MaybeEndo-isMonoid : ∀{A} → IsMonoid {Maybe (Endo A)} (lift2 _∙_) nothing
-MaybeEndo-isMonoid = MaybeA-isMonoid Endo-isMonoid
-
-record All : Set where
-  constructor all
-  field
-    getAll : Bool
-
-open All
-
-_&&_ : All → All → All
-x && y = all (getAll x ∧ getAll y) where open All
-
-&&-assoc : (x y z : All) →
-           all ((getAll x ∧ getAll y) ∧ getAll z) ≡ all (getAll x ∧ getAll y ∧ getAll z)
-&&-assoc (all x) (all y) (all z) = cong all (∧-assoc x y z)
-  where
-    ∧-assoc : (x y z : Bool) → (x ∧ y) ∧ z ≡ x ∧ y ∧ z
-    ∧-assoc true y z = refl
-    ∧-assoc false y z = refl
-
-All-isSemigroup : IsSemiGroup {All} _&&_
-All-isSemigroup = record { assoc = &&-assoc }
-
-All-isMonoid : IsMonoid {All} _&&_ (all true)
-All-isMonoid = record { isSemigroup = All-isSemigroup ; identity = (λ x → refl) , (λ x → b&&e≡b) }
-  where
-    b&&e≡b : {x : All} → all (getAll x ∧ true) ≡ x
-    b&&e≡b {x = all true} = refl
-    b&&e≡b {x = all false} = refl
-
-record Any : Set where
-  constructor any
-  field
-    getAny : Bool
-
-open Any
-
-_||_ : Any → Any → Any
-x || y = any (getAny x ∨ getAny y)
-||-assoc : (x y z : Any) →
-           any ((getAny x ∨ getAny y) ∨ getAny z) ≡ any (getAny x ∨ getAny y ∨ getAny z)
-||-assoc (any x) (any y) (any z) = cong any (∨-assoc x y z)
-  where
-    ∨-assoc : ∀ x y z → (x ∨ y) ∨ z ≡ x ∨ y ∨ z
-    ∨-assoc true y z = refl
-    ∨-assoc false y z = refl
-
-Any-isSemigroup : IsSemiGroup {Any} _||_
-Any-isSemigroup = record { assoc = ||-assoc }
-
-Any-isMonoid : IsMonoid {Any} _||_ (any false)
-Any-isMonoid = record { isSemigroup = Any-isSemigroup ; identity = (λ x → refl) , (λ x → b||e≡b) }
-  where
-    b||e≡b : {x : Any} → any (getAny x ∨ false) ≡ x
-    b||e≡b {x = any true} = refl
-    b||e≡b {x = any false} = refl
+    identity : Identity _∙_ ε
 
 record Dual (A : Set) : Set where
   constructor dual
   field
     getDual : A
 
-open Dual
+⇄ : ∀ {A : Set} → Op₂ A → Op₂ (Dual A)
+⇄ _⊕_ (dual x) (dual y) = dual (y ⊕ x)
 
-transDual : ∀ {A} → (A → A → A) → Dual A → Dual A → Dual A
-transDual f (dual x) (dual y) = dual (f y x)
-
-dual-assoc : ∀ {A} {op2 : A → A → A} →
-           IsSemiGroup op2 →
-           (x y z : Dual A) →
-           dual (op2 (getDual z) (op2 (getDual y) (getDual x))) ≡ dual (op2 (op2 (getDual z) (getDual y)) (getDual x))
-dual-assoc p (dual x) (dual y) (dual z) = cong dual (sym (IsSemiGroup.assoc p z y x))
-
-dual-identity : ∀ {A} {op2 : A → A → A} {ε : A} →
-                (prf : IsMonoid op2 ε) →
-                ((x : Dual A) → dual (op2 (getDual x) ε) ≡ x) × ((x : Dual A) → dual (op2 ε (getDual x)) ≡ x)
-dual-identity p = rightId p , leftId p
-  where
-    rightId : ∀ {A} {op2 : A → A → A} {ε : A} →
-          (prf : IsMonoid op2 ε) → (x : Dual A) → dual (op2 (getDual x) ε) ≡ x
-    rightId p (dual x) = cong dual (proj₂ (IsMonoid.identity p) x)
-    leftId : ∀ {A} {op2 : A → A → A} {ε : A} →
-         (prf : IsMonoid op2 ε) → (x : Dual A) → dual (op2 ε (getDual x)) ≡ x
-    leftId p (dual x) = cong dual (proj₁ (IsMonoid.identity p) x)
-
-DualA-isSemigroup : ∀ {A} {op2 : A → A → A} →
-                  (prf : IsSemiGroup {A} op2) → IsSemiGroup (transDual op2)
-DualA-isSemigroup prf = record { assoc = dual-assoc prf }
-
-DualA-isMonoid : ∀ {A} {op2 : A → A → A} {ε : A} →
-               (prf : IsMonoid {A} op2 ε) → IsMonoid (transDual op2) (dual ε)
-DualA-isMonoid p = record { isSemigroup = DualA-isSemigroup (IsMonoid.isSemigroup p)
-                          ; identity = dual-identity p
-                          }
-
-DualMaybeℕ+0-isMonoid : IsMonoid (transDual (lift2 _+_)) (dual nothing)
-DualMaybeℕ+0-isMonoid = DualA-isMonoid (MaybeA-isMonoid ℕ+0-isMonoid)
-
-MaybeDualℕ+0-isMonoid : IsMonoid (lift2 (transDual _+_)) nothing
-MaybeDualℕ+0-isMonoid = MaybeA-isMonoid (DualA-isMonoid ℕ+0-isMonoid)
-
-record First (A : Set) : Set where
-  constructor first
+record Endo (A : Set) : Set where
+  constructor endo
   field
-    getFirst : Maybe A
+    appEndo : Op₁ A
 
-_<|_ : {A : Set} → First A → First A → First A
-fa <| fb with fa
-fa <| fb | first nothing = fb
-fa <| fb | first (just _) = fa
-
-<|-assoc : {A : Set} → (fx fy fz : First A) → (fx <| fy) <| fz ≡ fx <| (fy <| fz)
-<|-assoc (first nothing) fy fz = refl
-<|-assoc (first (just x)) fy fz = refl
-
-<|-identity : {A : Set} → ((x : First A) → first nothing <| x ≡ x) × ((x : First A) → x <| first nothing ≡ x)
-<|-identity = (λ x → refl) , (λ x → right-id)
-  where
-    right-id : ∀ {A} {x : First A} → (x <| first nothing) ≡ x
-    right-id {x = first nothing} = refl
-    right-id {x = first (just x)} = refl
-
-record Last (A : Set) : Set where
-  constructor last
-  field
-    getLast : Maybe A
-
-_|>_ : {A : Set} → Last A → Last A → Last A
-fa |> fb with fb
-fa |> fb | last nothing = fa
-fa |> fb | last (just _) = fb
-
-|>-assoc : {A : Set} → (lx ly lz : Last A) → (lx |> ly) |> lz ≡ lx |> (ly |> lz)
-|>-assoc lx ly (last nothing) = refl
-|>-assoc lx ly (last (just x)) = refl
-
-|>-identity : ∀ {A} → ((x : Last A) → last nothing |> x ≡ x) × ((x : Last A) → x |> last nothing ≡ x)
-|>-identity = (λ x → left-id) , (λ x → refl)
-  where
-    left-id : ∀ {A} {x : Last A} → last nothing |> x ≡ x
-    left-id {x = last nothing} = refl
-    left-id {x = last (just x)} = refl
-
-
-First-isSemigroup : {A : Set} → IsSemiGroup {First A} _<|_
-First-isSemigroup = record { assoc = <|-assoc }
-
-Last-isSemigroup : {A : Set} → IsSemiGroup {Last A} _|>_
-Last-isSemigroup = record { assoc = |>-assoc }
-
-First-isMonoid : {A : Set} → IsMonoid {First A} _<|_ (first nothing)
-First-isMonoid = record { isSemigroup = First-isSemigroup ; identity = <|-identity }
-
-Last-isMonoid : {A : Set} → IsMonoid {Last A} _|>_ (last nothing)
-Last-isMonoid = record { isSemigroup = Last-isSemigroup ; identity = |>-identity }
-
-_<u>_ : Unit → Unit → Unit
-_ <u> _ = unit
-<u>-assoc : (x y z : Unit) → (x <u> y) <u> z ≡ x <u> (y <u> z)
-<u>-assoc x y z = refl
-
-Unit-isSemigroup : IsSemiGroup {Unit} _<u>_
-Unit-isSemigroup = record { assoc = <u>-assoc }
-
-Unit-isMonoid : IsMonoid {Unit} _<u>_ unit
-Unit-isMonoid = record { isSemigroup = Unit-isSemigroup
-                       ; identity = (λ x → left-id) , (λ x → right-id)
-                       }
-              where
-                left-id : ∀ {x} → unit ≡ x
-                left-id {unit} = refl
-                right-id : ∀ {x} → unit ≡ x
-                right-id {unit} = refl
-
-data Ord : Set where
-  LT : Ord
-  EQ : Ord
-  GT : Ord
-
-_<o>_ : Ord → Ord → Ord
-LT <o> y = LT
-EQ <o> y = y
-GT <o> y = GT
-
-<o>-assoc : (x y z : Ord) → (x <o> y) <o> z ≡ x <o> (y <o> z)
-<o>-assoc LT y z = refl
-<o>-assoc EQ y z = refl
-<o>-assoc GT y z = refl
-
-ord-identity : (∀ x → EQ <o> x ≡ x) × (∀ x → x <o> EQ ≡ x)
-ord-identity = (λ x → refl) , (λ x → riht-id)
-  where
-    riht-id : ∀ {x} → x <o> EQ ≡ x
-    riht-id {LT} = refl
-    riht-id {EQ} = refl
-    riht-id {GT} = refl
-
-Ord-isSemigroup : IsSemiGroup _<o>_
-Ord-isSemigroup = record { assoc = <o>-assoc }
-
-Ord-isMonoid : IsMonoid _<o>_ EQ
-Ord-isMonoid = record { isSemigroup = Ord-isSemigroup ; identity = ord-identity }
-
-[]-identity : {A : Set} {x : List A} → ([] ++ x ≡ x) × (x ++ [] ≡ x)
-[]-identity = left-id , right-id
-  where
-    left-id : {A : Set} {x : List A} → x ≡ x
-    left-id = refl
-    right-id : {A : Set} {x : List A} → x ++ [] ≡ x
-    right-id {x = []} = refl
-    right-id {x = x₁ ∷ x₂} = cong (λ xs → x₁ ∷ xs) right-id
-
-
-[]-assoc : {A : Set} (x y z : List A) → (x ++ y) ++ z ≡ x ++ (y ++ z)
-[]-assoc [] y z = refl
-[]-assoc (x ∷ x') y z = cong (_∷_ x) ([]-assoc x' y z)
-
-[]-isSemigroup : {A : Set} → IsSemiGroup {List A} _++_
-[]-isSemigroup = record { assoc = []-assoc }
-
-[]-isMonoid : {A : Set} → IsMonoid {List A} _++_ []
-[]-isMonoid = record { isSemigroup = []-isSemigroup
-                     ; identity = (λ x → proj₁ []-identity) , (λ x → proj₂ []-identity)
-                     }
-
-_<×>_ : {A B : Set} → (op₁ : A → A → A) → (op₂ : B → B → B) → A × B → A × B → A × B
-(op₁ <×> op₂) (fst₁ , snd₁) (fst₂ , snd₂) = op₁ fst₁ fst₂ , op₂ snd₁ snd₂
-
-×-assoc : ∀ {A B} {op₁ : A → A → A} {op₂ : B → B → B} →
-          IsSemiGroup op₁ →
-          IsSemiGroup op₂ →
-          (x y z : A × B) →
-          (op₁ (op₁ (proj₁ x) (proj₁ y)) (proj₁ z) , op₂ (op₂ (proj₂ x) (proj₂ y)) (proj₂ z))
-          ≡
-          (op₁ (proj₁ x) (op₁ (proj₁ y) (proj₁ z)) , op₂ (proj₂ x) (op₂ (proj₂ y) (proj₂ z)))
-×-assoc {A} {B} {op₁} {op₂} sg₁ sg₂ (fst₁ , snd₁) (fst₂ , snd₂) (fst₃ , snd₃)
-  with IsSemiGroup.assoc sg₁ fst₁ fst₂ fst₃ | IsSemiGroup.assoc sg₂ snd₁ snd₂ snd₃
-... | prf₁ | prf₂ rewrite prf₁ | prf₂ = refl
-
-×-isSemigroup : {A B : Set} {op₁ : A → A → A} {op₂ : B → B → B} →
-              IsSemiGroup op₁ → IsSemiGroup op₂ → IsSemiGroup {A × B} (op₁ <×> op₂)
-×-isSemigroup prf₁ prf₂ = record { assoc = ×-assoc prf₁ prf₂ }
-
-×-identity : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
-             IsMonoid op₁ e₁ →
-             IsMonoid op₂ e₂ →
-             ((x : A × B) → (op₁ e₁ (proj₁ x) , op₂ e₂ (proj₂ x)) ≡ x)
-             ×
-             ((x : A × B) → (op₁ (proj₁ x) e₁ , op₂ (proj₂ x) e₂) ≡ x)
-×-identity {A} {B} {op₁} {e₁} {op₂}{e₂} prf₁ prf₂ with IsMonoid.identity prf₁ | IsMonoid.identity prf₂
-... | id₁ | id₂ = left-id {A} {B} {op₁} {e₁} {op₂} {e₂} (proj₁ id₁) (proj₁ id₂) ,
-                  right-id {A} {B} {op₁} {e₁} {op₂} {e₂} (proj₂ id₁) (proj₂ id₂)
-  where
-    left-id : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
-          ((x : A) → op₁ e₁ x ≡ x) →
-          ((x : B) → op₂ e₂ x ≡ x) →
-          (x : A × B) → (op₁ e₁ (proj₁ x) , op₂ e₂ (proj₂ x)) ≡ x
-    left-id id₁ id₂ (x₁ , x₂) rewrite id₁ x₁ | id₂ x₂ = refl
-    right-id : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
-           ((x : A) → op₁ x e₁ ≡ x) →
-           ((x : B) → op₂ x e₂ ≡ x) →
-           (x : A × B) → (op₁ (proj₁ x) e₁ , op₂ (proj₂ x) e₂) ≡ x
-    right-id id₁ id₂ (x₁ , x₂) rewrite id₁ x₁ | id₂ x₂ = refl
-
-×-isMonoid : {A B : Set} {op₁ : A → A → A} {e₁ : A} {op₂ : B → B → B} {e₂ : B} →
-             IsMonoid op₁ e₁ → IsMonoid op₂ e₂ → (x y z : A × B) →
-             IsMonoid {A × B} (op₁ <×> op₂) (e₁ , e₂)
-×-isMonoid prf₁ prf₂ x y z
-  = record { isSemigroup = ×-isSemigroup (IsMonoid.isSemigroup prf₁) (IsMonoid.isSemigroup prf₂)
-           ; identity = ×-identity prf₁ prf₂
-           }
+_∙_ : ∀ {A : Set} → Op₂ (Endo A)
+endo f ∙ endo g = endo (f ∘ g)
 
 postulate
   extentionality : ∀ {a b} → PropEq.Extensionality a b
 
-covariant : {A B : Set} → (B → B → B) → (A → B) → (A → B) → A → B
-covariant _⊕_ f g x = f x ⊕ g x
+Arrow : (A B : Set) → Set
+Arrow A B = A → B
 
-covariant-assoc : {A B : Set} {_⊕_ : B → B → B} →
-                  IsSemiGroup _⊕_ →
-                  (f g h : A → B) →
-                  (λ x → (f x ⊕ g x) ⊕ h x) ≡ (λ x → f x ⊕ (g x ⊕ h x))
-covariant-assoc prf = λ f g h →  extentionality (λ x → IsSemiGroup.assoc prf (f x) (g x) (h x))
+↦ : ∀ {A B} → Op₂ B → Op₂ (Arrow A B)
+↦ _⊕_ f g x = f x ⊕ g x
 
-Covariant-isSemigroup : {A B : Set} {_⊕_ : B → B → B} →
-                      (prf : IsSemiGroup {B} _⊕_) → IsSemiGroup {A → B} (covariant _⊕_)
-Covariant-isSemigroup prf = record { assoc = covariant-assoc prf }
+↦-assoc : ∀ {A B} {_⊕_ : Op₂ B} → Associativity _⊕_ → Associativity (↦ {A} _⊕_)
+↦-assoc prf f g h = extentionality (λ x → prf (f x) (g x) (h x))
+
+↦-left-identity : ∀ {A B} {_⊕_ : Op₂ B} {ε : B} →
+                  Left-Identity _⊕_ ε → Left-Identity (↦ {A} _⊕_) (const ε)
+↦-left-identity prf = λ f → extentionality (λ x → prf (f x))
+↦-right-identity : ∀ {A B} {_⊕_ : Op₂ B} {ε : B} →
+                   Right-Identity _⊕_ ε → Right-Identity (↦ {A} _⊕_) (const ε)
+↦-right-identity prf = λ f → extentionality (λ x → prf (f x))
+
+↦-identity : ∀ {A B} {_⊕_ : Op₂ B} {ε : B} → Identity _⊕_ ε → Identity (↦ {A} _⊕_) (const ε)
+↦-identity {_⊕_ = _⊕_ } prf
+  = ↦-left-identity {_} {_} {_⊕_} (proj₁ prf) , ↦-right-identity {_} {_} {_⊕_} (proj₂ prf)
