@@ -53,16 +53,5 @@ Arrow A B = A → B
 ↦ : ∀ {A B} → Op₂ B → Op₂ (Arrow A B)
 ↦ _⊕_ f g x = f x ⊕ g x
 
-↦-assoc : ∀ {A B} {_⊕_ : Op₂ B} → Associativity _⊕_ → Associativity (↦ {A} _⊕_)
-↦-assoc prf f g h = extentionality (λ x → prf (f x) (g x) (h x))
-
-↦-left-identity : ∀ {A B} {_⊕_ : Op₂ B} {ε : B} →
-                  Left-Identity _⊕_ ε → Left-Identity (↦ {A} _⊕_) (const ε)
-↦-left-identity prf = λ f → extentionality (λ x → prf (f x))
-↦-right-identity : ∀ {A B} {_⊕_ : Op₂ B} {ε : B} →
-                   Right-Identity _⊕_ ε → Right-Identity (↦ {A} _⊕_) (const ε)
-↦-right-identity prf = λ f → extentionality (λ x → prf (f x))
-
-↦-identity : ∀ {A B} {_⊕_ : Op₂ B} {ε : B} → Identity _⊕_ ε → Identity (↦ {A} _⊕_) (const ε)
-↦-identity {_⊕_ = _⊕_ } prf
-  = ↦-left-identity {_} {_} {_⊕_} (proj₁ prf) , ↦-right-identity {_} {_} {_⊕_} (proj₂ prf)
+_|><|_ : {A B : Set} → Op₂ A → Op₂ B → Op₂ (A × B)
+_|><|_ _⊕_ _⊗_ (fst₁ , snd₁) (fst₂ , snd₂) = fst₁ ⊕ fst₂ , snd₁ ⊗ snd₂
